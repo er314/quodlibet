@@ -8,15 +8,15 @@
 
 import operator
 
-from gi.repository import Gtk, Pango, Gdk
+from gi.repository import Gtk, Pango, Gdk, Gio
 
-from quodlibet import qltk
+from quodlibet import qltk, app
 from quodlibet.qltk.views import AllTreeView, TreeViewColumnButton
 from quodlibet.qltk.songsmenu import SongsMenu
 from quodlibet.qltk.properties import SongProperties
 from quodlibet.qltk.information import Information
 from quodlibet.qltk import is_accel
-from quodlibet.util import connect_obj
+from quodlibet.util import connect_obj, thumbnails
 
 from .models import PaneModel
 from .util import PaneConfig
@@ -28,15 +28,19 @@ class Pane(AllTreeView):
     TARGET_INFO_QL = 1
     TARGET_INFO_URI_LIST = 2
 
+    ALBUM_COVER_THUMBNAIL_SIZE = 64
+
     def __init__(self, library, prefs, next_=None):
         super().__init__()
-        self.set_fixed_height_mode(True)
-
         self.config = PaneConfig(prefs)
+        self.set_fixed_height_mode(not self.config.show_album_cover)
+
         self.__next = next_
         self.__restore_values = None
 
         self.__no_fill = 0
+        self.__cover_cache = {}
+        self.__cover_requests = {}
 
         column = TreeViewColumnButton(title=self.config.title)
 
@@ -55,6 +59,57 @@ class Pane(AllTreeView):
         column.set_use_markup(True)
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         column.set_fixed_width(60)
+
+        if self.config.show_album_cover:
+            cover_render = Gtk.CellRendererPixbuf()
+            cover_render.set_fixed_size(self.ALBUM_COVER_THUMBNAIL_SIZE, self.ALBUM_COVER_THUMBNAIL_SIZE)
+            column.pack_start(cover_render, False)
+
+            def cover_cdf(column, cell, model, iter_, data):
+                entry = model.get_value(iter_)
+                song = next(iter(entry.songs), None)
+
+                if song is None:
+                    cell.set_property("pixbuf", None)
+                    cell.set_property("visible", False)
+                    return
+
+                if song in self.__cover_cache:
+                    pixbuf = self.__cover_cache[song]
+                    cell.set_property("pixbuf", pixbuf)
+                    cell.set_property("visible", pixbuf is not None)
+                    return
+
+                cell.set_property("pixbuf", None)
+                cell.set_property("visible", False)
+
+                if song in self.__cover_requests:
+                    return
+
+                cancellable = Gio.Cancellable()
+                self.__cover_requests[song] = cancellable
+
+                def cover_loaded(success, fileobj):
+                    self.__cover_requests.pop(song, None)
+
+                    pixbuf = None
+                    if success and fileobj:
+                        pixbuf = thumbnails.get_thumbnail_from_file(fileobj, (self.ALBUM_COVER_THUMBNAIL_SIZE, self.ALBUM_COVER_THUMBNAIL_SIZE))
+
+                    # Cache failures too, so a row without a cover doesn't request it
+                    # again on every redraw.
+                    self.__cover_cache[song] = pixbuf
+
+                    # Refresh rows that use this song so the thumbnail is displayed.
+                    matches = 0
+                    for row_iter, row_entry in model.iterrows():
+                        if song in row_entry.songs:
+                            matches += 1
+                            model.row_changed(model.get_path(row_iter), row_iter)
+
+                app.cover_manager.acquire_cover(cover_loaded, cancellable, song)
+
+            column.set_cell_data_func(cover_render, cover_cdf)
 
         render = Gtk.CellRendererText()
         render.set_property("ellipsize", Pango.EllipsizeMode.END)

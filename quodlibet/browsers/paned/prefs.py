@@ -70,7 +70,7 @@ class PatternEditor(Gtk.VBox):
         ["genre", "~people", "album"],
         ["~people", "album"],
     ]
-    COMPLETION = ["genre", "grouping", "~people", "artist", "album", "~year", "~rating"]
+    COMPLETION = ["genre", "grouping", "~people", "artist", "album", "~year", "~rating", "albumcover"]
 
     _COMPLEX_PATTERN_EXAMPLE = "<~year|[b]<~year>[/b]|[i]unknown year[/i]>"
 

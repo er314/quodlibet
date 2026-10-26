@@ -49,6 +49,10 @@ class PaneConfig:
             else "[i][span alpha='40%']<~#tracks>[/span][/i]"
         )
         cat = parts[0]
+        self.show_album_cover = "<albumcover>" in cat
+        if self.show_album_cover:
+            # This is a display directive, not a tag or part of the grouping pattern.
+            cat = re.sub(r"\s*<albumcover>\s*", " ", cat, count=1).strip()
 
         if is_pattern(cat):
             title = util.pattern(cat, esc=True, markup=True)

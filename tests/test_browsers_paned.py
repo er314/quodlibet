@@ -257,6 +257,24 @@ class TPaneConfig(TestCase):
             {"one", "two", "three", "four", "xxx"},
         )
 
+    def test_albumcover_is_display_only(self):
+        with_cover = PaneConfig(
+            "<albumcover> <artist> - [<date>] <album>"
+        )
+        without_cover = PaneConfig(
+            "<artist> - [<date>] <album>"
+        )
+
+        self.assertTrue(with_cover.show_album_cover)
+        self.assertFalse(without_cover.show_album_cover)
+
+        # The directive must not change the pattern, tag set, or grouping values.
+        self.assertEqual(with_cover.title, without_cover.title)
+        self.assertEqual(with_cover.tags, without_cover.tags)
+        self.assertEqual(
+            with_cover.format(SONGS[0]),
+            without_cover.format(SONGS[0]),
+        )
 
 class TPaneEntry(TestCase):
     def test_all_have(self):
