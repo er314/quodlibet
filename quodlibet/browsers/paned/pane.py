@@ -11,6 +11,7 @@ import operator
 from gi.repository import Gtk, Pango, Gdk, Gio
 
 from quodlibet import qltk, app
+from quodlibet.qltk.cover import CoverImage
 from quodlibet.qltk.views import AllTreeView, TreeViewColumnButton
 from quodlibet.qltk.songsmenu import SongsMenu
 from quodlibet.qltk.properties import SongProperties
@@ -20,6 +21,77 @@ from quodlibet.util import connect_obj, thumbnails
 
 from .models import PaneModel
 from .util import PaneConfig
+
+
+class PlayingCoverPane(Gtk.Box):
+    """A Paned Browser pane showing the currently playing track's cover."""
+
+    def __init__(self, next_=None):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        self.__next = next_
+
+        self.__cover = CoverImage(
+            resize=True, size=1, song=app.player.song
+        )
+        self.__cover.set_hexpand(True)
+        self.__cover.set_vexpand(True)
+        self.pack_start(self.__cover, True, True, 0)
+
+        handler_id = app.player.connect(
+            "song-started", self.__song_started
+        )
+        connect_obj(self, "destroy", app.player.disconnect, handler_id)
+        self.connect("destroy", self.__destroy)
+
+    @property
+    def tags(self):
+        # This pane displays art; it does not filter songs by a tag.
+        return set()
+
+    def __song_started(self, *args):
+        self.__cover.set_song(app.player.song)
+
+    def __destroy(self, *args):
+        self.__next = None
+
+    def fill(self, songs):
+        # Keep the normal pane-selection chain working through this
+        # non-filtering pane.
+        if self.__next:
+            self.__next.fill(songs)
+
+    def add(self, songs):
+        pass
+
+    def remove(self, songs, remove_if_empty=True):
+        pass
+
+    def matches(self, song):
+        return True
+
+    def scroll(self, song):
+        pass
+
+    def list(self, tag):
+        return []
+
+    def get_selected(self):
+        return []
+
+    def set_selected(self, values, jump=False, force_any=True):
+        pass
+
+    def inhibit(self):
+        pass
+
+    def uninhibit(self):
+        pass
+
+    def get_restore_string(self):
+        return "."
+
+    def parse_restore_string(self, config_value):
+        pass
 
 
 class Pane(AllTreeView):

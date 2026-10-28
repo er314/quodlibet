@@ -29,7 +29,7 @@ from quodlibet.qltk.paned import ConfigMultiRHPaned
 
 from .prefs import PreferencesButton, ColumnMode
 from .util import get_headers
-from .pane import Pane
+from .pane import Pane, PlayingCoverPane
 
 
 class PanedBrowser(Browser, util.InstanceTracker):
@@ -212,8 +212,11 @@ class PanedBrowser(Browser, util.InstanceTracker):
         # Fill in the pane list. The last pane reports back to us.
         self._panes = [self]
         for header in reversed(get_headers()):
-            pane = Pane(self._library, header, self._panes[0])
-            pane.connect("row-activated", lambda *x: self.songs_activated())
+            if header.strip().lower() == "<playingcover>":
+                pane = PlayingCoverPane(self._panes[0])
+            else:
+                pane = Pane(self._library, header, self._panes[0])
+                pane.connect("row-activated", lambda *x: self.songs_activated())
             self._panes.insert(0, pane)
         self._panes.pop()  # remove self
 
